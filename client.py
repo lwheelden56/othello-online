@@ -1,5 +1,5 @@
 # Othello LAN Multiplayer Client, Only sends input, receives output
-# Liam Wheelden
+
 
 # Notes
 # May need to put client ID in all transmissions
