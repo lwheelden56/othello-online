@@ -2,7 +2,7 @@
 
 # Notes
 # When checking transmissions from clients, make sure to note client id
-# might be easier to take original code to mold into server with viewer board
+# THIS WILL BE MERGED INTO SERVER REWRITE
 
 # Init
 import socket, sys, pygame
