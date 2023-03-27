@@ -1,41 +1,38 @@
-# Othello LAN Multiplayer Client, Only sends input, receives output
-
-
-# Notes
-# May need to put client ID in all transmissions
+# Othello LAN Multiplayer Client
+# Liam Wheelden
 
 # Init
 import pygame, time, socket
 global background, screen, swidth, sheight, BoardWidth, BoardHeight, BoardColor, Boardx, Boardy, BoardColor, CellWidth, CellHeight, BoarderWidth, BoarderColor,green, black, white
-global host, port, s
-pygame.init()
+global host, port, s, color, send
 
 # Connection Init
-print("Connect to client:")
+print("Connect to server:")
 
 host = str(input())
-port= 8002
+port = 8002
 
 # Connect to server
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print("Connecting to server...")
 s.connect((host, port))
-# Claim Client ID
-s.sendall("claim")
+
 while True:
-	print("Waiting for Client ID...")
-	rxdata = s.recv(1024)
-	if rxdata == 1 or rxdata == 2:
-		clientID=rxdata
-		print("Client ID Received! You are:"+ clientID)
+	rxdata=s.recv(1024)
+	if rxdata.decode()=="Connected":
+		print("Connected to server, getting color...")
+	if rxdata.decode()=="white" or rxdata.decode()=="black":
+		color = rxdata.decode()
+		print("Your color is: "+ color)
+	if rxdata.decode() == "gameon":
+		print("Game is starting...")
 		break
-	elif rxdata == "Server Full":
-		print("Server is full")
-		s.sendall(clientID +" disconnected")
-		s.close()
-		exit()
 
+while True: # Temporary
+	time.sleep(5)
+	print("idle")
 
+pygame.init()
 # Display & Board Init
 inf=pygame.display.Info()
 swidth=inf.current_w
@@ -69,6 +66,11 @@ def puttext(surf,pos,text,size,color,flag):
 		textpos=pos
 	surf.blit(textrend,textpos) 
 
+# Tx data to server
+def send(call):
+	global s
+	s.sendall(bytes(str(call),'utf-8'))
+	
 # Scoreboard Drawing Function	
 def drawScoreBoard(b,w,turn):
 	width=int(swidth*.4)
@@ -99,16 +101,15 @@ class board:
 				x=x+1
 			self.cells.append(row)
 			y=y+1
-		self.turn="white"									
+		self.turn="white" # move turns to server side
 
 	def draw(self,player):
 		screen.fill((0,0,0))
 		pygame.draw.rect(screen,BoarderColor,pygame.Rect(Boardx,Boardy,BoardWidth,BoardHeight))
-		for row in self.cells:	
+		for row in self.cells:
 			for col in row:
 				col.draw()
 		screen.blit(drawScoreBoard(self.getCount("black"),self.getCount("white"),self.turn),(int(sheight*.93),100))	
-
 
 # Cell Class
 class cell:
@@ -127,6 +128,16 @@ class cell:
 		self.centerx=self.xpos+int(CellWidth/2.0)		
 		self.centery=self.ypos+int(CellHeight/2.0)
 
+	def move(self,type): # may be confusing
+		if type=="white":
+			self.type="white"
+		elif type=="black":
+			self.type="black"
+		else:
+			self.type="blank"
+	def ret_type(self):
+		return self.type
+
 	def draw(self):
 		pygame.draw.rect(screen,green,pygame.Rect(self.xpos,self.ypos,CellWidth,CellHeight))
 		if self.type=="white":
@@ -143,69 +154,57 @@ while True:
 	game.cells[3][4].move("black")
 	game.cells[4][3].move("black")
 	wait=False
-	player="white"
+	#player="white" # needs to be done server side
 	puttext(screen,(200,500),"WELCOME TO OTHELLO. LET'S PLAY!",80,(0,255,0),"Center")
-	wait=True							
+	wait=True
 	ex=False
+#	send("ready") shouldn't be necessary
 
 # Game Loop Rewrite
 while True:
-	rxdata = s.recv(1024)
-	if rxdata == "game_over white" or rxdata == "game_over black" or rxdata == "game_over nobody":
-		puttext(screen,(200,500),"GAME OVER. "+result+" wins!",80,(255,0,0),"Center") # Needs correct winner result parsed from server
-		puttext(screen,(200,800),"Play Again?(Y/N)",80,(255,0,0),"Center")
-		gameover=True
-		wait=True			
-#   Add Other checks
+	rxdata = s.recv(1024) # Blocks thread from continuing
+
+#	if rxdata.decode() == "game_over white" or rxdata.decode() == "game_over black" or rxdata.decode() == "game_over nobody":
+#		result=rxdata.decode()
+		# needs parsed here
+#		puttext(screen,(200,500),"GAME OVER. "+result+" wins!",80,(255,0,0),"Center")
+#		puttext(screen,(200,800),"Play Again?(Y/N)",80,(255,0,0),"Center")
+#		gameover=True
+#		wait=True
+#	else:
+#		pass # fix?
+#	possibly check turn and then continue if this turn?
+
 	ev=pygame.event.get()
 	space=False
 	mpos=0
 	for event in ev:
 		if event.type==pygame.KEYUP:
 			if event.key==pygame.K_ESCAPE: # This is good
-				s.sendall(clientID+ "disconnected")
+				s.close()
 				exit()
-			if gameover and event.key==pygame.K_y: # Needs work
-				ex=True
-				s.sendall("restart game")
-			if gameover and event.key==pygame.K_n: # This is good
-				s.sendall(clientID +" disconnected")
-				exit()
-		if event.type==pygame.MOUSEBUTTONUP and game.game_over()=="game on": # Needs lot of work
+		if event.type==pygame.MOUSEBUTTONUP and rxdata.decode()==color:
 			mpos=pygame.mouse.get_pos()
 			x=int((mpos[0]-Boardx-BoarderWidth)/(CellWidth+BoarderWidth))
 			y=int((mpos[1]-Boardy-BoarderWidth)/(CellHeight+BoarderWidth))
-			if x<8 and y<8 and x>-1 and y>-1:
-				p=game.evaluate_move(x,y,player)
-				if len(p)>0:
-					p.append((y,x))
-					game.flip_pieces(p,player)
-					if player=="white":
-						player="black"
-					else:
-						player="white"
-					if not game.moves_possible(player):
-						if player=="white":
-							player="black"
-						else:
-							player="white"
-					game.turn=player
-				game.draw(player)			
-				if len(p) == 0:
+			send(x+ y)
+			while True:
+				rxdata=s.recv(1024) # Blocks thread from continuing
+				if rxdata.decode()=="Invalid Move":
 					puttext(screen,(200,500),"INVALID MOVE!!!",80,(255,0,0),"Center")
-					wait=True							
-			game.turn=player
-		
-	if ex: # what is this
+					wait=True
+					break
+				if rxdata.decode()=="Valid Move":
+					rxdata = s.recv(1024)
+					game.flip_pieces(rxdata.decode(),color)
+
+	if ex:
 		ex=False
 		break
-				
-#	result=game.game_over()
-#	s.sendall(result)
-				
+
 	pygame.display.flip() # this stays
 	if wait:
-		time.sleep(3)
+		time.sleep(2)
 		wait=False	
-		game.draw(player)			
+		game.draw()
 		pygame.display.flip()

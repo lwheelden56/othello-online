@@ -2,7 +2,7 @@
 
 # Notes
 # When checking transmissions from clients, make sure to note client id
-# THIS WILL BE MERGED INTO SERVER REWRITE
+# might be easier to take original code to mold into server with viewer board
 
 # Init
 import socket, sys, pygame
@@ -158,7 +158,7 @@ def evaluate_move(self,col,row,color):
 
 # Init Socket
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind(host,port)
+s.bind((host,port))
 s.listen(2)
 
 clients[''] # may not work

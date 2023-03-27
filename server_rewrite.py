@@ -1,16 +1,25 @@
 # Server File
 
+# Other notes
+# Send fliplist, let clients flip
+# game over cut due to scope issues
+
 # Init
-import pygame, time, socket
-global background, screen, swidth, sheight, BoardWidth, BoardHeight, BoardColor, Boardx, Boardy, BoardColor, CellWidth, CellHeight, BoarderWidth, BoarderColor,green, black, white
-global s, host, port
+import pygame, socket, threading, time
+global background, screen, swidth, sheight, BoardWidth, BoardHeight, BoardColor, Boardx, Boardy, BoardColor, CellWidth, CellHeight, BoarderWidth, BoarderColor, green, black, white
+global s, host, port, player, clients, display, clientS1, clientS2
 pygame.init()
+clients=[]
+
+# Config
+display=False
 
 # Display Init and Board Setup
 inf=pygame.display.Info()
 swidth=inf.current_w
 sheight=inf.current_h
-screen=pygame.display.set_mode((swidth,sheight),flags=pygame.FULLSCREEN)
+if display:
+	screen=pygame.display.set_mode((swidth,sheight),flags=pygame.RESIZABLE)
 BoardWidth=BoardHeight=int(sheight*0.885)
 Boardx=int(sheight*.03)
 Boardy=int(sheight*.1)
@@ -37,6 +46,32 @@ def puttext(surf,pos,text,size,color,flag):
 	else:
 		textpos=pos
 	surf.blit(textrend,textpos) 
+
+# Accept client connection requests
+def accept_clients():
+	global s, clients
+	print("Open to clients")
+	while len(clients)<=1:
+		clientsocket, addr = s.accept()
+		print('Connected to: ' + addr[0] + ':' + str(addr[1]))
+		clientsocket.sendall(bytes("Connected",'utf-8'))
+		threading.Thread(target=client_acc_thread, args=(clientsocket,)).start()
+	return
+
+# Identify Clients and Separate Sockets
+def client_acc_thread(client):
+	global s, clients, clientS1, clientS2
+	if len(clients)==1:
+		clientS2=client
+		clients.append(clientS2)
+		clientS2.sendall(bytes("black", 'utf-8'))
+		print(clientS2)
+	if len(clients)==0:
+		clientS1=client
+		clients.append(clientS1)
+		clientS1.sendall(bytes("white", 'utf-8'))
+		print(clientS1)
+	return
 
 # Scoreboard (Needs to send those results to clients)
 def drawScoreBoard(b,w,turn):
@@ -69,17 +104,18 @@ class board:
 				x=x+1
 			self.cells.append(row)
 			y=y+1
-		self.turn="white"									
+		self.turn="white"
 
 #	Draw Board (Leave as is)
 	def draw(self,player):
 		screen.fill((0,0,0))
 		pygame.draw.rect(screen,BoarderColor,pygame.Rect(Boardx,Boardy,BoardWidth,BoardHeight))
-		for row in self.cells:	
+		for row in self.cells:
 			for col in row:
 				col.draw()
 		screen.blit(drawScoreBoard(self.getCount("black"),self.getCount("white"),self.turn),(int(sheight*.93),100))	
 
+#	Get Count of Claimed Cells (Should be okay, send result on calling end)
 	def getCount(self,type):
 		cnt=0
 		for row in self.cells:	
@@ -95,6 +131,7 @@ class board:
 				count =count+len(self.evaluate_move(col,row,color))
 		return not count==0
 
+#	Game Over Detection (Should be okay, return may need fixed)
 	def game_over(self):
 		#returns black white or tie if game is over
 		if self.getCount("black")==0:
@@ -108,11 +145,12 @@ class board:
 		if self.getCount("blank")==0 and self.getCount("black")==self.getCount("white"):
 			return "nobody"
 		return "game on"
-			
+
+#	Also done on client side
 	def flip_pieces(self,plist,color):
 		for b in plist:
 			self.cells[b[0]][b[1]].move(color)
-			
+
 	def evaluate_move(self,col,row,color):
 		#return list of flippable coordinates
 		fliplist=[]
@@ -120,7 +158,7 @@ class board:
 			opponent="black"
 		else:
 			opponent="white"
-			
+
 		if not self.cells[row][col].ret_type()=="blank":
 			return []
 		delc=0
@@ -256,72 +294,70 @@ class cell:
 			pygame.draw.circle(screen,black,(self.centerx,self.centery),self.radius)
 
 # Board Setup
-while True:
-	game=board()
+#while True:
+game=board()
+game.cells[3][3].move("white")
+game.cells[4][4].move("white")
+game.cells[3][4].move("black")
+game.cells[4][3].move("black")
+#	wait=False
+player="white"
+#	puttext(screen,(200,500),"WELCOME TO OTHELLO. LET'S PLAY!",80,(0,255,0),"Center")
+#	wait=True
 
-	game.cells[3][3].move("white")
-	game.cells[4][4].move("white")
-	game.cells[3][4].move("black")
-	game.cells[4][3].move("black")
-	wait=False
-	player="white"
-	puttext(screen,(200,500),"WELCOME TO OTHELLO. LET'S PLAY!",80,(0,255,0),"Center")
-	wait=True							
-#	ex=False
-# Main Loop (Needs heavy modification)
-	while 1==1:
-	
-		ev=pygame.event.get()
-		space=False
-#		mpos=0
-		for event in ev:
-			if event.type==pygame.KEYUP:
-				if event.key==pygame.K_ESCAPE:
-					exit()
-#				if gameover and event.key==pygame.K_y:
-#					ex=True
-#				if gameover and event.key==pygame.K_n:
-#					exit()
-#			Needs modification/removal
-			if event.type==pygame.MOUSEBUTTONUP and game.game_over()=="game on":
-				mpos=pygame.mouse.get_pos()
-				x=int((mpos[0]-Boardx-BoarderWidth)/(CellWidth+BoarderWidth))
-				y=int((mpos[1]-Boardy-BoarderWidth)/(CellHeight+BoarderWidth))
-				if x<8 and y<8 and x>-1 and y>-1:
-					p=game.evaluate_move(x,y,player)
-					if len(p)>0:
-						p.append((y,x))
-						game.flip_pieces(p,player)
+# Init Socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind(('',8002))
+s.listen(2)
+idle=True
+gameon=False
+
+# Main Loop (Heavy modification needed)
+while True:
+	if idle==True:
+		accept_clients()
+		if len(clients)==2:
+			clientS1.sendall(bytes("gameon", 'utf-8'))
+			time.sleep(1)
+			print(clientS2)
+			clientS2.sendall(bytes("gameon", 'utf-8'))
+#			idle=False
+	ev=pygame.event.get()
+	for event in ev:
+		if event.type==pygame.KEYUP:
+			if event.key==pygame.K_ESCAPE and event.key==pygame.K_LCTRL: # Prevent from closing accidentally
+				exit()
+
+	while True: # Temporary
+		time.sleep(5)
+		print("idle")
+
+	if player=="white":
+		coords=clientS1.recv(1024)
+		coords.split()
+		print(coords) # debug
+		if coords[0]<8 and coords[1]<8 and coords[0]>-1 and coords[1]>-1:
+				p=game.evaluate_move(x,y,player)
+				if len(p)>0: # what is this
+					clientS1.sendall(bytes(player+ "Valid Move",'utf-8'))
+					p.append((y,x)) # why is this here
+					game.flip_pieces(p,player)
+					clientS1.sendall(bytes)
+					if player=="white":
+						player="black"
+					else:
+						player="white"
+					if not game.moves_possible(player):
 						if player=="white":
 							player="black"
 						else:
 							player="white"
-						if not game.moves_possible(player):
-							if player=="white":
-								player="black"
-							else:
-								player="white"
-						game.turn=player
-					game.draw(player)
-					if len(p) == 0:
-						puttext(screen,(200,500),"INVALID MOVE!!!",80,(255,0,0),"Center")
-						wait=True
-				game.turn=player
-		
-#		if ex:
-#			ex=False
-#			break
-				
-		result=game.game_over()
-		if not result=="game on":
-			puttext(screen,(200,500),"GAME OVER. "+result+" wins!",80,(255,0,0),"Center")
-			puttext(screen,(200,800),"Play Again?(Y/N)",80,(255,0,0),"Center")
-			gameover=True
-			wait=True
+					game.turn=player
+				game.draw(player)
+				if len(p) == 0:
+					puttext(screen,(200,500),"INVALID MOVE!!!",80,(255,0,0),"Center")
+					clientS1.sendall(bytes("Invalid Move",'utf-8'))
+					wait=True
+		game.turn=player
 
-		pygame.display.flip()
-		if wait:
-			time.sleep(3)
-			wait=False	
-			game.draw(player)
-			pygame.display.flip()
+	pygame.display.flip()
