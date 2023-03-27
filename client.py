@@ -1,5 +1,4 @@
 # Othello LAN Multiplayer Client
-# Liam Wheelden
 
 # Init
 import pygame, time, socket
