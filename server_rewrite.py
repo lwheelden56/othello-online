@@ -7,12 +7,13 @@
 # Init
 import pygame, socket, threading, time
 global background, screen, swidth, sheight, BoardWidth, BoardHeight, BoardColor, Boardx, Boardy, BoardColor, CellWidth, CellHeight, BoarderWidth, BoarderColor, green, black, white
-global s, host, port, player, clients, display, clientS1, clientS2
+global s, host, port, player, clients, display, clientS1, clientS2, encoder
 pygame.init()
 clients=[]
 
 # Config
 display=False
+encoder='utf-8'
 
 # Display Init and Board Setup
 inf=pygame.display.Info()
@@ -54,7 +55,7 @@ def accept_clients():
 	while len(clients)<=1:
 		clientsocket, addr = s.accept()
 		print('Connected to: ' + addr[0] + ':' + str(addr[1]))
-		clientsocket.sendall(bytes("Connected",'utf-8'))
+		clientsocket.sendall(bytes("Connected", encoder))
 		threading.Thread(target=client_acc_thread, args=(clientsocket,)).start()
 	return
 
@@ -64,13 +65,13 @@ def client_acc_thread(client):
 	if len(clients)==1:
 		clientS2=client
 		clients.append(clientS2)
-		clientS2.sendall(bytes("black", 'utf-8'))
-		print(clientS2)
+		clientS2.sendall(bytes("black", encoder))
+#		print(clientS2)
 	if len(clients)==0:
 		clientS1=client
 		clients.append(clientS1)
-		clientS1.sendall(bytes("white", 'utf-8'))
-		print(clientS1)
+		clientS1.sendall(bytes("white", encoder))
+#		print(clientS1)
 	return
 
 # Scoreboard (Needs to send those results to clients)
@@ -317,32 +318,34 @@ while True:
 	if idle==True:
 		accept_clients()
 		if len(clients)==2:
-			clientS1.sendall(bytes("gameon", 'utf-8'))
+			clientS1.sendall(bytes("gameon", encoder))
 			time.sleep(1)
-			print(clientS2)
-			clientS2.sendall(bytes("gameon", 'utf-8'))
-#			idle=False
+#			print(clientS2)
+			clientS2.sendall(bytes("gameon", encoder))
+			idle=False
 	ev=pygame.event.get()
 	for event in ev:
 		if event.type==pygame.KEYUP:
 			if event.key==pygame.K_ESCAPE and event.key==pygame.K_LCTRL: # Prevent from closing accidentally
 				exit()
 
-	while True: # Temporary
-		time.sleep(5)
-		print("idle")
+#	while True: # Temporary
+#		time.sleep(5)
+#		print("idle")
 
-	if player=="white":
-		coords=clientS1.recv(1024)
+	if idle==False and player=="white":
+		clientS1.sendall(bytes("white turn", encoder))
+		clientS2.sendall(bytes("white turn", encoder))
+		coords=clientS1.recv(1024) # Wait for coordinates from white
 		coords.split()
 		print(coords) # debug
 		if coords[0]<8 and coords[1]<8 and coords[0]>-1 and coords[1]>-1:
 				p=game.evaluate_move(x,y,player)
 				if len(p)>0: # what is this
-					clientS1.sendall(bytes(player+ "Valid Move",'utf-8'))
+					clientS1.sendall(bytes(player+ "Valid Move", encoder))
 					p.append((y,x)) # why is this here
 					game.flip_pieces(p,player)
-					clientS1.sendall(bytes)
+					clientS1.sendall(bytes(p, encoder)) # May not work
 					if player=="white":
 						player="black"
 					else:
@@ -356,8 +359,8 @@ while True:
 				game.draw(player)
 				if len(p) == 0:
 					puttext(screen,(200,500),"INVALID MOVE!!!",80,(255,0,0),"Center")
-					clientS1.sendall(bytes("Invalid Move",'utf-8'))
+					clientS1.sendall(bytes("Invalid Move", encoder))
 					wait=True
 		game.turn=player
-
+	# Test white first, then black
 	pygame.display.flip()

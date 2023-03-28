@@ -3,7 +3,7 @@
 # Init
 import pygame, time, socket
 global background, screen, swidth, sheight, BoardWidth, BoardHeight, BoardColor, Boardx, Boardy, BoardColor, CellWidth, CellHeight, BoarderWidth, BoarderColor,green, black, white
-global host, port, s, color, send
+global host, port, s, color, color2, send
 
 # Connection Init
 print("Connect to server:")
@@ -16,6 +16,7 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print("Connecting to server...")
 s.connect((host, port))
 
+# Get info from server
 while True:
 	rxdata=s.recv(1024)
 	if rxdata.decode()=="Connected":
@@ -23,15 +24,20 @@ while True:
 	if rxdata.decode()=="white" or rxdata.decode()=="black":
 		color = rxdata.decode()
 		print("Your color is: "+ color)
+#		Keep opposite color on record
+		if rxdata.decode()=="white":
+			color2="black"
+		elif rxdata.decode()=="black":
+			color2="white"
 	if rxdata.decode() == "gameon":
 		print("Game is starting...")
 		break
 
-while True: # Temporary
-	time.sleep(5)
-	print("idle")
+#while True: # Temporary
+#	time.sleep(5)
+#	print("idle")
 
-pygame.init()
+pygame.init() # Runs faster down here
 # Display & Board Init
 inf=pygame.display.Info()
 swidth=inf.current_w
@@ -153,11 +159,9 @@ while True:
 	game.cells[3][4].move("black")
 	game.cells[4][3].move("black")
 	wait=False
-	#player="white" # needs to be done server side
 	puttext(screen,(200,500),"WELCOME TO OTHELLO. LET'S PLAY!",80,(0,255,0),"Center")
 	wait=True
 	ex=False
-#	send("ready") shouldn't be necessary
 
 # Game Loop Rewrite
 while True:
@@ -182,20 +186,27 @@ while True:
 			if event.key==pygame.K_ESCAPE: # This is good
 				s.close()
 				exit()
-		if event.type==pygame.MOUSEBUTTONUP and rxdata.decode()==color:
+		if event.type==pygame.MOUSEBUTTONUP and rxdata.decode()==color + "turn": # Check syntax
+			print(rxdata.decode()) # Debug
 			mpos=pygame.mouse.get_pos()
 			x=int((mpos[0]-Boardx-BoarderWidth)/(CellWidth+BoarderWidth))
 			y=int((mpos[1]-Boardy-BoarderWidth)/(CellHeight+BoarderWidth))
 			send(x+ y)
 			while True:
-				rxdata=s.recv(1024) # Blocks thread from continuing
+				rxdata=s.recv(1024) # Wait to receive move validation
 				if rxdata.decode()=="Invalid Move":
 					puttext(screen,(200,500),"INVALID MOVE!!!",80,(255,0,0),"Center")
 					wait=True
 					break
 				if rxdata.decode()=="Valid Move":
-					rxdata = s.recv(1024)
+					rxdata = s.recv(1024) # Wait to receive flip list
 					game.flip_pieces(rxdata.decode(),color)
+					game.draw(color)
+#	This may not be in the right place
+	if rxdata.decode()==color2 + "turn": # Check syntax
+		rxdata = s.recv(1024) # Wait to receive flip list
+		game.flip.pieces(rxdata.decode(),color2)
+		game.draw(color2)
 
 	if ex:
 		ex=False
