@@ -3,7 +3,7 @@
 # Init
 import pygame, time, socket
 global background, screen, swidth, sheight, BoardWidth, BoardHeight, BoardColor, Boardx, Boardy, BoardColor, CellWidth, CellHeight, BoarderWidth, BoarderColor,green, black, white
-global host, port, s, color, color2, send
+global host, port, s, color, color2, send, whiteCount, blackCount
 pygame.init()
 
 # Connection Init
@@ -75,18 +75,18 @@ def send(call):
 	s.sendall(bytes(str(call),'utf-8'))
 	
 # Scoreboard Drawing Function	
-def drawScoreBoard(b,w,turn):
-	width=int(swidth*.4)
-	height=int(sheight*.4)
-	scoreboard=pygame.Surface((width,height))
-	scoreboard.fill((0,0,100))
-	if turn=="white":
-		puttext(scoreboard,(width,3),"White Player Turn",40,white,"center")
-	if turn=="black":
-		puttext(scoreboard,(width,3),"Black Player Turn",40,white,"center")
-	puttext(scoreboard,(10,70),"White Player Tiles Owned: "+str(w),30,white,"")
-	puttext(scoreboard,(10,120),"Black Player Tiles Owned: "+str(b),30,white,"")
-	return scoreboard	
+#def drawScoreBoard(b,w,turn):
+#	width=int(swidth*.4)
+#	height=int(sheight*.4)
+#	scoreboard=pygame.Surface((width,height))
+#	scoreboard.fill((0,0,100))
+#	if turn=="white":
+#		puttext(scoreboard,(width,3),"White Player Turn",40,white,"center")
+#	if turn=="black":
+#		puttext(scoreboard,(width,3),"Black Player Turn",40,white,"center")
+#	puttext(scoreboard,(10,70),"White Player Tiles Owned: "+str(w),30,white,"")
+#	puttext(scoreboard,(10,120),"Black Player Tiles Owned: "+str(b),30,white,"")
+#	return scoreboard	
 
 # Board Class
 class board:
@@ -104,7 +104,7 @@ class board:
 				x=x+1
 			self.cells.append(row)
 			y=y+1
-		self.turn="white" # move turns to server side
+#		self.turn="white" # only for scoreboard, gameover
 
 	def draw(self,player):
 		screen.fill((0,0,0))
@@ -112,7 +112,7 @@ class board:
 		for row in self.cells:
 			for col in row:
 				col.draw()
-		screen.blit(drawScoreBoard(self.getCount("black"),self.getCount("white"),self.turn),(int(sheight*.93),100))	
+#		screen.blit(drawScoreBoard(self.getCount("black"),self.getCount("white"),self.turn),(int(sheight*.93),100))	
 
 # Cell Class
 class cell:
@@ -155,10 +155,12 @@ game.cells[3][3].move("white")
 game.cells[4][4].move("white")
 game.cells[3][4].move("black")
 game.cells[4][3].move("black")
-wait=False
-puttext(screen,(200,500),"WELCOME TO OTHELLO. LET'S PLAY!",80,(0,255,0),"Center")
-wait=True
-ex=False
+#wait=False
+#puttext(screen,(200,500),"WELCOME TO OTHELLO. LET'S PLAY!",80,(0,255,0),"Center")
+#wait=True
+#ex=False
+whiteCount=2
+blackCount=2
 
 # Draw initially so client sees something
 game.draw(color)
@@ -194,6 +196,7 @@ while True:
 			mpos=pygame.mouse.get_pos()
 			x=int((mpos[0]-Boardx-BoarderWidth)/(CellWidth+BoarderWidth))
 			y=int((mpos[1]-Boardy-BoarderWidth)/(CellHeight+BoarderWidth))
+			print(x+ y) # may need separate hardware clients to debug from here
 			send(x+ y)
 			while True:
 				rxdata=s.recv(1024) # Wait to receive move validation
@@ -211,13 +214,14 @@ while True:
 		game.flip.pieces(rxdata.decode(),color2)
 		game.draw(color2)
 
-	if ex:
-		ex=False
-		break
+#	if ex:
+#		ex=False
+#		break
 
 	pygame.display.flip() # this stays
-	if wait:
-		time.sleep(2)
-		wait=False	
-		game.draw()
-		pygame.display.flip()
+#	if wait:
+#		time.sleep(2)
+#		wait=False	
+#		game.draw(color)
+#		game.draw(color2)
+#		pygame.display.flip()

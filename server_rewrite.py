@@ -2,7 +2,7 @@
 
 # Other notes
 # Send fliplist, let clients flip
-# game over cut due to scope issues
+# game over, scoreboard cut due to scope issues
 
 # Init
 import pygame, socket, threading, time
@@ -51,7 +51,7 @@ def puttext(surf,pos,text,size,color,flag):
 # Accept client connection requests
 def accept_clients():
 	global s, clients
-	print("Open to clients")
+	print("Port Open")
 	while len(clients)<=1:
 		clientsocket, addr = s.accept()
 		print('Connected to: ' + addr[0] + ':' + str(addr[1]))
@@ -63,32 +63,32 @@ def accept_clients():
 def client_acc_thread(client):
 	global s, clients, clientS1, clientS2
 	if len(clients)==1:
+		print("ClientS2 Init")
 		clientS2=client
 		clients.append(clientS2)
 		clientS2.sendall(bytes("black", encoder))
-#		print(clientS2)
 	if len(clients)==0:
+		print("ClientS1 Init")
 		clientS1=client
 		clients.append(clientS1)
 		clientS1.sendall(bytes("white", encoder))
-#		print(clientS1)
 	return
 
 # Scoreboard (Needs to send those results to clients)
-def drawScoreBoard(b,w,turn):
-	width=int(swidth*.4)
-	height=int(sheight*.4)
-	scoreboard=pygame.Surface((width,height))
-	scoreboard.fill((0,0,100))
-	if turn=="white":
-		puttext(scoreboard,(width,3),"White Player Turn",40,white,"center")
-	if turn=="black":
-		puttext(scoreboard,(width,3),"Black Player Turn",40,white,"center")
-	puttext(scoreboard,(10,70),"White Player Tiles Owned: "+str(w),30,white,"")
-	puttext(scoreboard,(10,120),"Black Player Tiles Owned: "+str(b),30,white,"")
-	return scoreboard	
+#def drawScoreBoard(b,w,turn):
+#	width=int(swidth*.4)
+#	height=int(sheight*.4)
+#	scoreboard=pygame.Surface((width,height))
+#	scoreboard.fill((0,0,100))
+#	if turn=="white":
+#		puttext(scoreboard,(width,3),"White Player Turn",40,white,"center")
+#	if turn=="black":
+#		puttext(scoreboard,(width,3),"Black Player Turn",40,white,"center")
+#	puttext(scoreboard,(10,70),"White Player Tiles Owned: "+str(w),30,white,"")
+#	puttext(scoreboard,(10,120),"Black Player Tiles Owned: "+str(b),30,white,"")
+#	return scoreboard	
 
-# Board Class (Still needs modification)
+# Board Class
 class board:
 #	Board Init (Leave as is)
 	def __init__(self):
@@ -107,23 +107,23 @@ class board:
 			y=y+1
 		self.turn="white"
 
-#	Draw Board (Leave as is)
+#	Draw Board
 	def draw(self,player):
 		screen.fill((0,0,0))
 		pygame.draw.rect(screen,BoarderColor,pygame.Rect(Boardx,Boardy,BoardWidth,BoardHeight))
 		for row in self.cells:
 			for col in row:
 				col.draw()
-		screen.blit(drawScoreBoard(self.getCount("black"),self.getCount("white"),self.turn),(int(sheight*.93),100))	
+#		screen.blit(drawScoreBoard(self.getCount("black"),self.getCount("white"),self.turn),(int(sheight*.93),100))	
 
 #	Get Count of Claimed Cells (Should be okay, send result on calling end)
-	def getCount(self,type):
-		cnt=0
-		for row in self.cells:	
-			for col in row:
-				if col.ret_type()==type:
-					cnt=cnt+1
-		return cnt	
+#	def getCount(self,type):
+#		cnt=0
+#		for row in self.cells:	
+#			for col in row:
+#				if col.ret_type()==type:
+#					cnt=cnt+1
+#		return cnt	
 
 	def moves_possible(self,color):	
 		count=0
@@ -133,19 +133,19 @@ class board:
 		return not count==0
 
 #	Game Over Detection (Should be okay, return may need fixed)
-	def game_over(self):
-		#returns black white or tie if game is over
-		if self.getCount("black")==0:
-			return "white"
-		if self.getCount("white")==0:
-			return "black"
-		if self.getCount("blank")==0 and self.getCount("black")>self.getCount("white"):
-			return "black"
-		if self.getCount("blank")==0 and self.getCount("black")<self.getCount("white"):
-			return "white"
-		if self.getCount("blank")==0 and self.getCount("black")==self.getCount("white"):
-			return "nobody"
-		return "game on"
+#	def game_over(self):
+#		#returns black white or tie if game is over
+#		if self.getCount("black")==0:
+#			return "white"
+#		if self.getCount("white")==0:
+#			return "black"
+#		if self.getCount("blank")==0 and self.getCount("black")>self.getCount("white"):
+#			return "black"
+#		if self.getCount("blank")==0 and self.getCount("black")<self.getCount("white"):
+#			return "white"
+#		if self.getCount("blank")==0 and self.getCount("black")==self.getCount("white"):
+#			return "nobody"
+#		return "game on"
 
 #	Also done on client side
 	def flip_pieces(self,plist,color):
@@ -295,7 +295,6 @@ class cell:
 			pygame.draw.circle(screen,black,(self.centerx,self.centery),self.radius)
 
 # Board Setup
-#while True:
 game=board()
 game.cells[3][3].move("white")
 game.cells[4][4].move("white")
@@ -319,7 +318,6 @@ while True:
 		if len(clients)==2:
 			clientS1.sendall(bytes("gameon", encoder))
 			time.sleep(1)
-#			print(clientS2)
 			clientS2.sendall(bytes("gameon", encoder))
 			idle=False
 	ev=pygame.event.get()
@@ -328,20 +326,30 @@ while True:
 			if event.key==pygame.K_ESCAPE: # add another key later
 				exit()
 
+#	Update counts (only needed if game_over or drawScoreboard are on)
+#	clientS1.sendall(bytes("white" + str(game.getCount("white"),encoder)))
+#	clientS1.sendall(bytes("black" + str(game.getCount("black"),encoder)))
+#	clientS2.sendall(bytes("white" + str(game.getCount("white"),encoder)))
+#	clientS2.sendall(bytes("black" + str(game.getCount("black"),encoder)))
+
 	if idle==False and player=="white":
 		time.sleep(5)
 		clientS1.sendall(bytes("white turn", encoder))
 		clientS2.sendall(bytes("white turn", encoder))
-		coords=clientS1.recv(1024) # Wait for coordinates from white
+		rxdata=clientS1.recv(1024) # Wait for coordinates from white
+		coords=rxdata.decode()
 		coords.split()
 		print(coords) # debug
-		if coords[0]<8 and coords[1]<8 and coords[0]>-1 and coords[1]>-1:
+		if coords[0]<8 and coords[1]<8 and coords[0]>-1 and coords[1]>-1: # doesn't make it past here, indexerror, rx empty data
 				p=game.evaluate_move(x,y,player)
-				if len(p)>0: # what is this
+				if len(p)>0: # If there are pieces to flip
 					clientS1.sendall(bytes(player+ "Valid Move", encoder))
 					p.append((y,x)) # why is this here
-					game.flip_pieces(p,player)
+					game.flip_pieces(p,player) # Server-side display only
+#					Send to clients so they can flip on their end
 					clientS1.sendall(bytes(p, encoder)) # May not work
+					clientS2.sendall(bytes(p, encoder)) # May not work
+#					Change turn
 					if player=="white":
 						player="black"
 					else:
@@ -351,12 +359,13 @@ while True:
 							player="black"
 						else:
 							player="white"
-					game.turn=player
+#					game.turn=player # Only used for scoreboard
 				game.draw(player)
-				if len(p) == 0:
+				if len(p) == 0: # If no pieces can be flipped
 					puttext(screen,(200,500),"INVALID MOVE!!!",80,(255,0,0),"Center")
 					clientS1.sendall(bytes("Invalid Move", encoder))
 					wait=True
-		game.turn=player
+#		game.turn=player # Only used for scoreboard
+
 	# Test white first, then black
 	pygame.display.flip()
