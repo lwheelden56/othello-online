@@ -4,6 +4,7 @@
 import pygame, time, socket
 global background, screen, swidth, sheight, BoardWidth, BoardHeight, BoardColor, Boardx, Boardy, BoardColor, CellWidth, CellHeight, BoarderWidth, BoarderColor,green, black, white
 global host, port, s, color, color2, send
+pygame.init()
 
 # Connection Init
 print("Connect to server:")
@@ -33,11 +34,6 @@ while True:
 		print("Game is starting...")
 		break
 
-#while True: # Temporary
-#	time.sleep(5)
-#	print("idle")
-
-pygame.init() # Runs faster down here
 # Display & Board Init
 inf=pygame.display.Info()
 swidth=inf.current_w
@@ -56,6 +52,8 @@ background=(0,0,0)
 black=(0,0,0)
 BoarderColor=(205,155,30)
 white=(255,255,255)
+
+print("Display Generated") # debug
 
 # Text Function
 def puttext(surf,pos,text,size,color,flag):
@@ -151,20 +149,25 @@ class cell:
 			pygame.draw.circle(screen,black,(self.centerx,self.centery),self.radius)
 
 # Intro and Setup
-while True:
-	game=board()
+game=board()
 
-	game.cells[3][3].move("white")
-	game.cells[4][4].move("white")
-	game.cells[3][4].move("black")
-	game.cells[4][3].move("black")
-	wait=False
-	puttext(screen,(200,500),"WELCOME TO OTHELLO. LET'S PLAY!",80,(0,255,0),"Center")
-	wait=True
-	ex=False
+game.cells[3][3].move("white")
+game.cells[4][4].move("white")
+game.cells[3][4].move("black")
+game.cells[4][3].move("black")
+wait=False
+puttext(screen,(200,500),"WELCOME TO OTHELLO. LET'S PLAY!",80,(0,255,0),"Center")
+wait=True
+ex=False
 
-# Game Loop Rewrite
+# Draw initially so client sees something
+game.draw(color)
+game.draw(color2)
+pygame.display.flip()
+
+# Game Loop
 while True:
+	print("inside full game loop") # debug
 	rxdata = s.recv(1024) # Blocks thread from continuing
 
 #	if rxdata.decode() == "game_over white" or rxdata.decode() == "game_over black" or rxdata.decode() == "game_over nobody":

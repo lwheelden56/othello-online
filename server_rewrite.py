@@ -311,7 +311,6 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind(('',8002))
 s.listen(2)
 idle=True
-gameon=False
 
 # Main Loop (Heavy modification needed)
 while True:
@@ -326,14 +325,11 @@ while True:
 	ev=pygame.event.get()
 	for event in ev:
 		if event.type==pygame.KEYUP:
-			if event.key==pygame.K_ESCAPE and event.key==pygame.K_LCTRL: # Prevent from closing accidentally
+			if event.key==pygame.K_ESCAPE: # add another key later
 				exit()
 
-#	while True: # Temporary
-#		time.sleep(5)
-#		print("idle")
-
 	if idle==False and player=="white":
+		time.sleep(5)
 		clientS1.sendall(bytes("white turn", encoder))
 		clientS2.sendall(bytes("white turn", encoder))
 		coords=clientS1.recv(1024) # Wait for coordinates from white
