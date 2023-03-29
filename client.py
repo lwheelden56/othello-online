@@ -7,18 +7,20 @@ global host, port, s, color, color2, send, whiteCount, blackCount
 pygame.init()
 
 # Connection Init
-print("Connect to server:")
-
-host = str(input())
+#print("Connect to server:")
+host = "192.168.0.108"
+#host = str(input())
 port = 8002
 
 # Connect to server
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print("Connecting to server...")
+time.sleep(2) # Artificial, to make it seem like it's loading
 s.connect((host, port))
 
 # Get info from server
 while True:
+#	print("Waiting for response from server...")
 	rxdata=s.recv(1024)
 	if rxdata.decode()=="Connected":
 		print("Connected to server, getting color...")
@@ -28,6 +30,7 @@ while True:
 #		Keep opposite color on record
 		if rxdata.decode()=="white":
 			color2="black"
+#			print("Waiting on player 2...")
 		elif rxdata.decode()=="black":
 			color2="white"
 	if rxdata.decode() == "gameon":
@@ -169,9 +172,8 @@ pygame.display.flip()
 
 # Game Loop
 while True:
-	print("inside full game loop") # debug
 	rxdata = s.recv(1024) # Blocks thread from continuing
-
+	print(rxdata.decode())
 #	if rxdata.decode() == "game_over white" or rxdata.decode() == "game_over black" or rxdata.decode() == "game_over nobody":
 #		result=rxdata.decode()
 		# needs parsed here
@@ -191,13 +193,13 @@ while True:
 			if event.key==pygame.K_ESCAPE: # This is good
 				s.close()
 				exit()
-		if event.type==pygame.MOUSEBUTTONUP and rxdata.decode()==color + "turn": # Check syntax
-			print(rxdata.decode()) # Debug
+		if event.type==pygame.MOUSEBUTTONUP and rxdata.decode().split()[0]==color:
+			print("point")
 			mpos=pygame.mouse.get_pos()
 			x=int((mpos[0]-Boardx-BoarderWidth)/(CellWidth+BoarderWidth))
 			y=int((mpos[1]-Boardy-BoarderWidth)/(CellHeight+BoarderWidth))
-			print(x+ y) # may need separate hardware clients to debug from here
-			send(x+ y)
+			if x<8 and y<8 and x>-1 and y>-1:
+				send(str(x) +" "+ str(y))
 			while True:
 				rxdata=s.recv(1024) # Wait to receive move validation
 				if rxdata.decode()=="Invalid Move":

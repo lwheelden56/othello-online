@@ -4,6 +4,8 @@
 # Send fliplist, let clients flip
 # game over, scoreboard cut due to scope issues
 
+# for disconnects, each rxdata becomes if and checks for no data
+
 # Init
 import pygame, socket, threading, time
 global background, screen, swidth, sheight, BoardWidth, BoardHeight, BoardColor, Boardx, Boardy, BoardColor, CellWidth, CellHeight, BoarderWidth, BoarderColor, green, black, white
@@ -63,15 +65,17 @@ def accept_clients():
 def client_acc_thread(client):
 	global s, clients, clientS1, clientS2
 	if len(clients)==1:
-		print("ClientS2 Init")
+#		print("ClientS2 Init")
 		clientS2=client
 		clients.append(clientS2)
 		clientS2.sendall(bytes("black", encoder))
+		print(clients)
 	if len(clients)==0:
-		print("ClientS1 Init")
+#		print("ClientS1 Init")
 		clientS1=client
 		clients.append(clientS1)
 		clientS1.sendall(bytes("white", encoder))
+		print(clients)
 	return
 
 # Scoreboard (Needs to send those results to clients)
@@ -315,7 +319,9 @@ idle=True
 while True:
 	if idle==True:
 		accept_clients()
+		print("point")
 		if len(clients)==2:
+			print("Sending gameon")
 			clientS1.sendall(bytes("gameon", encoder))
 			time.sleep(1)
 			clientS2.sendall(bytes("gameon", encoder))
@@ -333,15 +339,17 @@ while True:
 #	clientS2.sendall(bytes("black" + str(game.getCount("black"),encoder)))
 
 	if idle==False and player=="white":
+		print("send")
 		time.sleep(5)
 		clientS1.sendall(bytes("white turn", encoder))
 		clientS2.sendall(bytes("white turn", encoder))
 		rxdata=clientS1.recv(1024) # Wait for coordinates from white
 		coords=rxdata.decode()
-		coords.split()
+		coords=coords.split()
 		print(coords) # debug
-		if coords[0]<8 and coords[1]<8 and coords[0]>-1 and coords[1]>-1: # doesn't make it past here, indexerror, rx empty data
-				p=game.evaluate_move(x,y,player)
+		if int(coords[0])<8 and int(coords[1])<8 and int(coords[0])>-1 and int(coords[1])>-1: # doesn't make it past here, indexerror, rx empty data
+				print("eval")
+				p=game.evaluate_move(int(coords[0]),int(coords[1]),player)
 				if len(p)>0: # If there are pieces to flip
 					clientS1.sendall(bytes(player+ "Valid Move", encoder))
 					p.append((y,x)) # why is this here
