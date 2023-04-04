@@ -7,7 +7,7 @@
 # for disconnects, each rxdata becomes if and checks for no data
 
 # Init
-import pygame, socket, threading, time
+import pygame, socket, threading, time, pickle
 global background, screen, swidth, sheight, BoardWidth, BoardHeight, BoardColor, Boardx, Boardy, BoardColor, CellWidth, CellHeight, BoarderWidth, BoarderColor, green, black, white
 global s, host, port, player, clients, display, clientS1, clientS2, encoder
 pygame.init()
@@ -319,18 +319,17 @@ idle=True
 while True:
 	if idle==True:
 		accept_clients()
-		print("point")
 		if len(clients)==2:
-			print("Sending gameon")
 			clientS1.sendall(bytes("gameon", encoder))
 			time.sleep(1)
 			clientS2.sendall(bytes("gameon", encoder))
 			idle=False
-	ev=pygame.event.get()
-	for event in ev:
-		if event.type==pygame.KEYUP:
-			if event.key==pygame.K_ESCAPE: # add another key later
-				exit()
+	if display:
+		ev=pygame.event.get()
+		for event in ev:
+			if event.type==pygame.KEYUP:
+				if event.key==pygame.K_ESCAPE: # add another key later
+					exit()
 
 #	Update counts (only needed if game_over or drawScoreboard are on)
 #	clientS1.sendall(bytes("white" + str(game.getCount("white"),encoder)))
@@ -339,8 +338,8 @@ while True:
 #	clientS2.sendall(bytes("black" + str(game.getCount("black"),encoder)))
 
 	if idle==False and player=="white":
-		print("send")
-		time.sleep(5)
+		print("send white")
+		time.sleep(3)
 		clientS1.sendall(bytes("white turn", encoder))
 		clientS2.sendall(bytes("white turn", encoder))
 		rxdata=clientS1.recv(1024) # Wait for coordinates from white
@@ -348,15 +347,17 @@ while True:
 		coords=coords.split()
 		print(coords) # debug
 		if int(coords[0])<8 and int(coords[1])<8 and int(coords[0])>-1 and int(coords[1])>-1: # doesn't make it past here, indexerror, rx empty data
-				print("eval")
+				print("eval white")
 				p=game.evaluate_move(int(coords[0]),int(coords[1]),player)
 				if len(p)>0: # If there are pieces to flip
-					clientS1.sendall(bytes(player+ "Valid Move", encoder))
-					p.append((y,x)) # why is this here
+					clientS1.sendall(bytes("Valid Move", encoder))
+					clientS2.sendall(bytes("Valid Move", encoder))
+					p.append((int(coords[1]),int(coords[0]))) # why is this here
 					game.flip_pieces(p,player) # Server-side display only
 #					Send to clients so they can flip on their end
-					clientS1.sendall(bytes(p, encoder)) # May not work
-					clientS2.sendall(bytes(p, encoder)) # May not work
+					time.sleep(0.5)
+					clientS1.sendall(pickle.dumps(p)) # May not work
+					clientS2.sendall(pickle.dumps(p)) # May not work
 #					Change turn
 					if player=="white":
 						player="black"
@@ -368,12 +369,57 @@ while True:
 						else:
 							player="white"
 #					game.turn=player # Only used for scoreboard
-				game.draw(player)
+				if display:
+					game.draw(player)
 				if len(p) == 0: # If no pieces can be flipped
-					puttext(screen,(200,500),"INVALID MOVE!!!",80,(255,0,0),"Center")
+					if display:
+						puttext(screen,(200,500),"INVALID MOVE!!!",80,(255,0,0),"Center")
 					clientS1.sendall(bytes("Invalid Move", encoder))
-					wait=True
+#					wait=True
 #		game.turn=player # Only used for scoreboard
 
-	# Test white first, then black
-	pygame.display.flip()
+	if idle==False and player=="black":
+		print("send black")
+		time.sleep(3)
+		clientS1.sendall(bytes("black turn", encoder))
+		clientS2.sendall(bytes("black turn", encoder))
+		rxdata=clientS2.recv(1024) # Wait for coordinates from black
+		coords=rxdata.decode()
+		coords=coords.split()
+		print(coords) # debug
+		if int(coords[0])<8 and int(coords[1])<8 and int(coords[0])>-1 and int(coords[1])>-1: # doesn't make it past here, indexerror, rx empty data
+				print("eval black")
+				p=game.evaluate_move(int(coords[0]),int(coords[1]),player)
+				if len(p)>0: # If there are pieces to flip
+					clientS1.sendall(bytes("Valid Move", encoder))
+					clientS2.sendall(bytes("Valid Move", encoder))
+					p.append((int(coords[1]),int(coords[0])))
+					game.flip_pieces(p,player) # Server-side display only
+#					Send to clients so they can flip on their end
+					time.sleep(0.5)
+					clientS1.sendall(pickle.dumps(p)) # May not work
+					clientS2.sendall(pickle.dumps(p)) # May not work
+#					Change turn
+					if player=="white":
+						player="black"
+					else:
+						player="white"
+					if not game.moves_possible(player):
+						if player=="white":
+							player="black"
+						else:
+							player="white"
+#					game.turn=player # Only used for scoreboard
+				if display:
+					game.draw(player)
+				if len(p) == 0: # If no pieces can be flipped
+					if display:
+						puttext(screen,(200,500),"INVALID MOVE!!!",80,(255,0,0),"Center")
+					clientS2.sendall(bytes("Invalid Move", encoder))
+#					wait=True
+#		game.turn=player # Only used for scoreboard
+
+	# odd bug where server goes to the top of the loop and continuously tells the clients what turn it is
+
+	if display:	
+		pygame.display.flip()

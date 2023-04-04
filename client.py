@@ -1,26 +1,24 @@
 # Othello LAN Multiplayer Client
 
 # Init
-import pygame, time, socket
+import pygame, time, socket, pickle
 global background, screen, swidth, sheight, BoardWidth, BoardHeight, BoardColor, Boardx, Boardy, BoardColor, CellWidth, CellHeight, BoarderWidth, BoarderColor,green, black, white
-global host, port, s, color, color2, send, whiteCount, blackCount
+global host, port, s, color, color2, send, whiteCount, blackCount, currentTurn
 pygame.init()
 
 # Connection Init
-#print("Connect to server:")
-host = "192.168.0.108"
-#host = str(input())
+print("Connect to server:")
+#host = "192.168.0.108"
+host = str(input())
 port = 8002
 
 # Connect to server
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print("Connecting to server...")
-time.sleep(2) # Artificial, to make it seem like it's loading
 s.connect((host, port))
 
 # Get info from server
 while True:
-#	print("Waiting for response from server...")
 	rxdata=s.recv(1024)
 	if rxdata.decode()=="Connected":
 		print("Connected to server, getting color...")
@@ -109,6 +107,10 @@ class board:
 			y=y+1
 #		self.turn="white" # only for scoreboard, gameover
 
+	def flip_pieces(self,plist,player):
+		for b in plist:
+			self.cells[b[0]][b[1]].move(player)
+
 	def draw(self,player):
 		screen.fill((0,0,0))
 		pygame.draw.rect(screen,BoarderColor,pygame.Rect(Boardx,Boardy,BoardWidth,BoardHeight))
@@ -164,16 +166,18 @@ game.cells[4][3].move("black")
 #ex=False
 whiteCount=2
 blackCount=2
+wait=False
 
 # Draw initially so client sees something
 game.draw(color)
 game.draw(color2)
 pygame.display.flip()
 
+rxdata=s.recv(1024)
+currentTurn=rxdata.decode().split()[0]
 # Game Loop
 while True:
-	rxdata = s.recv(1024) # Blocks thread from continuing
-	print(rxdata.decode())
+	
 #	if rxdata.decode() == "game_over white" or rxdata.decode() == "game_over black" or rxdata.decode() == "game_over nobody":
 #		result=rxdata.decode()
 		# needs parsed here
@@ -193,8 +197,7 @@ while True:
 			if event.key==pygame.K_ESCAPE: # This is good
 				s.close()
 				exit()
-		if event.type==pygame.MOUSEBUTTONUP and rxdata.decode().split()[0]==color:
-			print("point")
+		if currentTurn==color and event.type==pygame.MOUSEBUTTONUP:
 			mpos=pygame.mouse.get_pos()
 			x=int((mpos[0]-Boardx-BoarderWidth)/(CellWidth+BoarderWidth))
 			y=int((mpos[1]-Boardy-BoarderWidth)/(CellHeight+BoarderWidth))
@@ -203,18 +206,40 @@ while True:
 			while True:
 				rxdata=s.recv(1024) # Wait to receive move validation
 				if rxdata.decode()=="Invalid Move":
+#					print(rxdata.decode())
 					puttext(screen,(200,500),"INVALID MOVE!!!",80,(255,0,0),"Center")
-					wait=True
+					game.draw(color)
+					game.draw(color2)
+					pygame.display.flip()
+					time.sleep(2)
 					break
 				if rxdata.decode()=="Valid Move":
 					rxdata = s.recv(1024) # Wait to receive flip list
-					game.flip_pieces(rxdata.decode(),color)
+#					print(pickle.loads(rxdata))
+					p = []
+					for i in range(0, len(pickle.loads(rxdata))):
+						p.append(pickle.loads(rxdata)[i])
+					game.flip_pieces(p,color)
 					game.draw(color)
-#	This may not be in the right place
-	if rxdata.decode()==color2 + "turn": # Check syntax
-		rxdata = s.recv(1024) # Wait to receive flip list
-		game.flip.pieces(rxdata.decode(),color2)
-		game.draw(color2)
+					pygame.display.flip()
+					rxdata = s.recv(1024)
+					currentTurn=rxdata.decode().split()[0]
+					p = []
+					if currentTurn==color2:
+						break
+
+	if currentTurn==color2:
+		rxdata = s.recv(1024)
+		if rxdata.decode()=="Valid Move":
+			rxdata = s.recv(1024) # Wait to receive flip list
+			p = []
+			for i in range(0, len(pickle.loads(rxdata))):
+				p.append(pickle.loads(rxdata)[i])
+			game.flip_pieces(p,color2)
+			game.draw(color2)
+			rxdata = s.recv(1024)
+			currentTurn=rxdata.decode().split()[0]
+			p = []
 
 #	if ex:
 #		ex=False
